@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="로또픽">
+<meta name="theme-color" content="#0f0f1a">
+<link rel="manifest" href="manifest.json">
+<title>로또픽 — 번호 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f1a;
+  --bg2: #16162a;
+  --bg3: #1e1e35;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.15);
+  --text: #f0f0ff;
+  --text2: #9090b0;
+  --text3: #5a5a80;
+  --accent: #c8a84b;
+  --accent2: #e8c86a;
+  --radius: 16px;
+  --radius-sm: 10px;
+
+  --c1: #f9ca24;  /* 1~10 노랑 */
+  --c2: #0984e3;  /* 11~20 파랑 */
+  --c3: #e84393;  /* 21~30 핑크 */
+  --c4: #6c5ce7;  /* 31~40 보라 */
+  --c5: #00b894;  /* 41~45 초록 */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* ── 헤더 ── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(15,15,26,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px; letter-spacing: 2px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header-sub { font-size: 11px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; }
+.jackpot-badge {
+  background: linear-gradient(135deg, #c8a84b22, #e8c86a22);
+  border: 1px solid var(--accent);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 11px; color: var(--accent); font-weight: 700; letter-spacing: 0.5px;
+}
+
+/* ── 메인 컨테이너 ── */
+.container { max-width: 480px; margin: 0 auto; padding: 16px 16px; }
+
+/* ── 모드 탭 ── */
+.mode-tabs {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  background: var(--bg2); border-radius: var(--radius);
+  padding: 4px; gap: 4px; margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.mode-tab {
+  padding: 10px 6px; border-radius: 12px; border: none;
+  background: transparent; color: var(--text2);
+  font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s; text-align: center;
+}
+.mode-tab.active {
+  background: linear-gradient(135deg, #c8a84b33, #e8c86a22);
+  color: var(--accent2); font-weight: 700;
+  border: 1px solid var(--accent);
+  box-shadow: 0 2px 12px rgba(200,168,75,0.2);
+}
+
+/* ── 섹션 카드 ── */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 14px;
+}
+.card-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title::before {
+  content: ''; display: block;
+  width: 3px; height: 14px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+}
+
+/* ── 번호 격자 ── */
+.num-grid {
+  display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px;
+}
+@media (max-width: 360px) { .num-grid { grid-template-columns: repeat(8,1fr); gap: 4px; } }
+
+.num-btn {
+  aspect-ratio: 1; border-radius: 50%; border: 1.5px solid var(--border2);
+  background: var(--bg3); color: var(--text2);
+  font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Noto Sans KR', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+.num-btn:active { transform: scale(0.88); }
+
+/* 번호 색상 */
+.num-btn[data-n]                               { border-color: var(--border2); }
+.num-btn[data-range="1"]  { border-color: var(--c1); color: var(--c1); }
+.num-btn[data-range="2"]  { border-color: var(--c2); color: var(--c2); }
+.num-btn[data-range="3"]  { border-color: var(--c3); color: var(--c3); }
+.num-btn[data-range="4"]  { border-color: var(--c4); color: var(--c4); }
+.num-btn[data-range="5"]  { border-color: var(--c5); color: var(--c5); }
+
+.num-btn.excluded {
+  background: #ff444422 !important; border-color: #ff4444 !important;
+  color: #ff4444 !important; text-decoration: line-through; opacity: 0.7;
+}
+.num-btn.fixed {
+  background: #c8a84b33 !important; border-color: var(--accent) !important;
+  color: var(--accent) !important; font-weight: 900;
+}
+.num-btn.manual-sel {
+  font-weight: 900;
+}
+.num-btn[data-range="1"].manual-sel  { background: var(--c1); color: #111; border-color: var(--c1); }
+.num-btn[data-range="2"].manual-sel  { background: var(--c2); color: #fff; border-color: var(--c2); }
+.num-btn[data-range="3"].manual-sel  { background: var(--c3); color: #fff; border-color: var(--c3); }
+.num-btn[data-range="4"].manual-sel  { background: var(--c4); color: #fff; border-color: var(--c4); }
+.num-btn[data-range="5"].manual-sel  { background: var(--c5); color: #111; border-color: var(--c5); }
+
+.num-btn.disabled {
+  opacity: 0.2 !important; cursor: not-allowed; pointer-events: none;
+}
+
+/* ── 게임 수 선택 ── */
+.game-count-row { display: flex; gap: 6px; align-items: center; }
+.game-count-btn {
+  flex: 1; padding: 10px 4px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border2); background: var(--bg3);
+  color: var(--text2); font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+  text-align: center;
+}
+.game-count-btn.active {
+  border-color: var(--accent); background: #c8a84b22; color: var(--accent2); font-weight: 700;
+}
+
+/* ── CTA 버튼 ── */
+.btn-generate {
+  width: 100%; padding: 18px; border-radius: var(--radius);
+  border: none; cursor: pointer;
+  background: linear-gradient(135deg, #c8a84b, #e8c86a);
+  color: #111; font-family: 'Noto Sans KR', sans-serif;
+  font-size: 17px; font-weight: 900; letter-spacing: 0.5px;
+  transition: all 0.2s; position: relative; overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 24px rgba(200,168,75,0.35);
+}
+.btn-generate:active { transform: scale(0.97); }
+.btn-generate:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ── 결과 영역 ── */
+.result-section { display: none; }
+.result-section.show { display: block; }
+
+.result-game {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 10px;
+  animation: slideUp 0.35s ease both;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.result-game:nth-child(2) { animation-delay: 0.05s; }
+.result-game:nth-child(3) { animation-delay: 0.10s; }
+.result-game:nth-child(4) { animation-delay: 0.15s; }
+.result-game:nth-child(5) { animation-delay: 0.20s; }
+
+.result-label {
+  font-size: 10px; color: var(--text3); font-weight: 700;
+  letter-spacing: 1px; margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.copy-game-btn {
+  background: none; border: 1px solid var(--border2); border-radius: 6px;
+  color: var(--text3); font-size: 10px; padding: 2px 8px; cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif; transition: all 0.15s;
+}
+.copy-game-btn:active { background: var(--border); }
+
+.balls-row { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; }
+
+.ball {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 900;
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.4);
+  flex-shrink: 0;
+  animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.ball:nth-child(1) { animation-delay: 0.05s; }
+.ball:nth-child(2) { animation-delay: 0.10s; }
+.ball:nth-child(3) { animation-delay: 0.15s; }
+.ball:nth-child(4) { animation-delay: 0.20s; }
+.ball:nth-child(5) { animation-delay: 0.25s; }
+.ball:nth-child(6) { animation-delay: 0.30s; }
+@keyframes popIn {
+  from { opacity:0; transform: scale(0.3) rotate(-20deg); }
+  to   { opacity:1; transform: scale(1) rotate(0); }
+}
+.ball.r1 { background: radial-gradient(circle at 35% 35%, #ffe566, var(--c1)); color: #5a3c00; }
+.ball.r2 { background: radial-gradient(circle at 35% 35%, #5ab8ff, var(--c2)); color: #fff; }
+.ball.r3 { background: radial-gradient(circle at 35% 35%, #ff9ed8, var(--c3)); color: #fff; }
+.ball.r4 { background: radial-gradient(circle at 35% 35%, #b09cff, var(--c4)); color: #fff; }
+.ball.r5 { background: radial-gradient(circle at 35% 35%, #5dffd6, var(--c5)); color: #003c2a; }
+
+/* ── 하단 버튼 행 ── */
+.btn-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.btn-sm {
+  flex: 1; padding: 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border2); background: var(--bg2);
+  color: var(--text2); font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px; cursor: pointer; transition: all 0.15s; font-weight: 500;
+}
+.btn-sm:active { background: var(--bg3); }
+.btn-sm.danger { border-color: #ff444444; color: #ff7777; }
+.btn-sm.danger:active { background: #ff444422; }
+
+/* ── 태그 행 ── */
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+.tag {
+  background: #c8a84b22; border: 1px solid var(--accent);
+  border-radius: 20px; padding: 3px 10px; font-size: 12px; color: var(--accent);
+  font-weight: 700;
+}
+.tag.excl {
+  background: #ff444422; border-color: #ff4444; color: #ff7777;
+}
+.tag-empty { font-size: 12px; color: var(--text3); line-height: 28px; }
+
+/* ── 토스트 ── */
+.toast {
+  position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 80px);
+  left: 50%; transform: translateX(-50%) translateY(20px);
+  background: rgba(30,30,50,0.95); backdrop-filter: blur(12px);
+  border: 1px solid var(--border2); border-radius: 30px;
+  padding: 10px 22px; font-size: 13px; color: var(--text);
+  pointer-events: none; opacity: 0; transition: all 0.25s; z-index: 999;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── 경고 텍스트 ── */
+.warn { font-size: 12px; color: #ff7777; margin-top: 6px; min-height: 18px; }
+
+/* ── 결과 헤더 ── */
+.result-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.result-title { font-size: 12px; color: var(--accent); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── PWA 설치 배너 ── */
+.install-banner {
+  background: linear-gradient(135deg, #c8a84b22, #1e1e35);
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 14px 16px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.install-banner-icon { font-size: 28px; flex-shrink: 0; }
+.install-banner-text { flex: 1; }
+.install-banner-text p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.install-banner-text strong { font-size: 14px; color: var(--text); }
+.install-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #111; border: none; border-radius: 10px;
+  padding: 8px 14px; font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: 'Noto Sans KR', sans-serif; flex-shrink: 0;
+}
+.install-banner.hidden { display: none; }
+
+/* ── 풀 카운터 ── */
+.pool-info {
+  font-size: 11px; color: var(--text3); text-align: right; margin-top: 8px;
+}
+.pool-info span { color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <div>
+    <div class="header-logo">LOTTO PICK</div>
+    <div class="header-sub">로또 번호 생성기</div>
+  </div>
+  <div class="jackpot-badge">🎰 1~45</div>
+</div>
+
+<div class="container">
+
+  <!-- PWA 설치 배너 -->
+  <div class="install-banner hidden" id="installBanner">
+    <div class="install-banner-icon">📱</div>
+    <div class="install-banner-text">
+      <strong>앱으로 설치하기</strong>
+      <p>홈 화면에 추가하면 앱처럼 사용!</p>
+    </div>
+    <button class="install-btn" id="installBtn">설치</button>
+  </div>
+
+  <!-- 모드 탭 -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="auto" onclick="setMode('auto')">🎯 자동</button>
+    <button class="mode-tab" data-mode="semi" onclick="setMode('semi')">⚡ 반자동</button>
+    <button class="mode-tab" data-mode="manual" onclick="setMode('manual')">✏️ 수동</button>
+  </div>
+
+  <!-- 제외번호 카드 -->
+  <div class="card">
+    <div class="card-title">제외번호 선택</div>
+    <div class="num-grid" id="excludeGrid"></div>
+    <div class="pool-info">사용 가능 번호: <span id="poolCount">45</span>개</div>
+    <div class="warn" id="excludeWarn"></div>
+    <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+      <div style="font-size:11px; color:var(--text3);">제외된 번호:</div>
+      <div class="tag-row" id="excludeTagRow"><span class="tag-empty">없음</span></div>
+    </div>
+    <button class="btn-sm danger" style="margin-top:10px; width:100%;" onclick="clearExcluded()">제외번호 전체 해제</button>
+  </div>
+
+  <!-- 고정번호 카드 (반자동 전용) -->
+  <div class="card" id="fixedCard" style="display:none;">
+    <div class="card-title">고정번호 선택 <span style="font-size:10px; color:var(--text3); font-weight:400; text-transform:none;">(최대 5개)</span></div>
+    <div class="num-grid" id="fixedGrid"></div>
+    <div class="warn" id="fixedWarn"></div>
+    <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+      <div style="font-size:11px; color:var(--text3);">고정번호:</div>
+      <div class="tag-row" id="fixedTagRow"><span class="tag-empty">없음</span></div>
+    </div>
+  </div>
+
+  <!-- 수동 카드 -->
+  <div class="card" id="manualCard" style="display:none;">
+    <div class="card-title">번호 직접 선택 <span style="font-size:10px; color:var(--text3); font-weight:400; text-transform:none;">(6개 선택)</span></div>
+    <div class="num-grid" id="manualGrid"></div>
+    <div class="warn" id="manualWarn"></div>
+    <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+      <div style="font-size:11px; color:var(--text3);">선택번호:</div>
+      <div class="tag-row" id="manualTagRow"><span class="tag-empty">없음</span></div>
+    </div>
+  </div>
+
+  <!-- 게임 수 (자동/반자동만) -->
+  <div class="card" id="gameCountCard">
+    <div class="card-title">게임 수</div>
+    <div class="game-count-row" id="gameCountRow">
+      <button class="game-count-btn active" data-g="1" onclick="setGameCount(1)">1게임</button>
+      <button class="game-count-btn" data-g="2" onclick="setGameCount(2)">2게임</button>
+      <button class="game-count-btn" data-g="3" onclick="setGameCount(3)">3게임</button>
+      <button class="game-count-btn" data-g="4" onclick="setGameCount(4)">4게임</button>
+      <button class="game-count-btn" data-g="5" onclick="setGameCount(5)">5게임</button>
+    </div>
+  </div>
+
+  <!-- 생성 버튼 -->
+  <button class="btn-generate" id="generateBtn" onclick="generate()">
+    🎰 추천번호 생성
+  </button>
+
+  <!-- 결과 영역 -->
+  <div class="result-section" id="resultSection">
+    <div class="result-header">
+      <div class="result-title">📋 추천 번호</div>
+      <button class="btn-sm" style="width:auto; padding:6px 12px; font-size:11px;" onclick="copyAll()">전체 복사</button>
+    </div>
+    <div id="resultGames"></div>
+    <div class="btn-row">
+      <button class="btn-sm" onclick="generate()">🔄 다시 생성</button>
+      <button class="btn-sm danger" onclick="resetAll()">🗑️ 초기화</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 상태 ──
+let mode = 'auto';
+let excluded = new Set();
+let fixed = new Set();
+let manualSel = new Set();
+let gameCount = 1;
+
+// ── 격자 렌더 ──
+function getRange(n) {
+  if (n <= 10) return '1';
+  if (n <= 20) return '2';
+  if (n <= 30) return '3';
+  if (n <= 40) return '4';
+  return '5';
+}
+
+function buildGrid(containerId, clickHandler) {
+  const g = document.getElementById(containerId);
+  g.innerHTML = '';
+  for (let n = 1; n <= 45; n++) {
+    const b = document.createElement('button');
+    b.className = 'num-btn';
+    b.dataset.n = n;
+    b.dataset.range = getRange(n);
+    b.textContent = n;
+    b.onclick = () => clickHandler(n, b);
+    g.appendChild(b);
+  }
+}
+
+function refreshGrids() {
+  updateExcludeGrid();
+  if (mode === 'semi') updateFixedGrid();
+  if (mode === 'manual') updateManualGrid();
+  updatePoolCount();
+}
+
+function updateExcludeGrid() {
+  const btns = document.querySelectorAll('#excludeGrid .num-btn');
+  btns.forEach(b => {
+    const n = +b.dataset.n;
+    b.classList.toggle('excluded', excluded.has(n));
+  });
+  updateExcludeTags();
+}
+
+function updateFixedGrid() {
+  const btns = document.querySelectorAll('#fixedGrid .num-btn');
+  btns.forEach(b => {
+    const n = +b.dataset.n;
+    b.classList.remove('excluded', 'fixed', 'disabled');
+    if (excluded.has(n)) { b.classList.add('excluded', 'disabled'); }
+    else if (fixed.has(n)) { b.classList.add('fixed'); }
+  });
+  updateFixedTags();
+}
+
+function updateManualGrid() {
+  const btns = document.querySelectorAll('#manualGrid .num-btn');
+  btns.forEach(b => {
+    const n = +b.dataset.n;
+    b.classList.remove('excluded', 'manual-sel', 'disabled');
+    if (excluded.has(n)) { b.classList.add('excluded', 'disabled'); }
+    else if (manualSel.has(n)) { b.classList.add('manual-sel'); }
+  });
+  updateManualTags();
+  updateGenerateBtn();
+}
+
+function updatePoolCount() {
+  const pool = 45 - excluded.size;
+  document.getElementById('poolCount').textContent = pool;
+}
+
+// ── 클릭 핸들러 ──
+function onExcludeClick(n) {
+  if (excluded.has(n)) {
+    excluded.delete(n);
+  } else {
+    if (45 - excluded.size <= 6) {
+      showWarn('excludeWarn', '최소 6개 번호는 남겨야 해요!');
+      return;
+    }
+    excluded.add(n);
+    fixed.delete(n);
+    manualSel.delete(n);
+  }
+  clearWarn('excludeWarn');
+  refreshGrids();
+}
+
+function onFixedClick(n) {
+  if (excluded.has(n)) return;
+  if (fixed.has(n)) {
+    fixed.delete(n);
+  } else {
+    if (fixed.size >= 5) { showWarn('fixedWarn', '고정번호는 최대 5개까지!'); return; }
+    fixed.add(n);
+  }
+  clearWarn('fixedWarn');
+  updateFixedGrid();
+}
+
+function onManualClick(n) {
+  if (excluded.has(n)) return;
+  if (manualSel.has(n)) {
+    manualSel.delete(n);
+  } else {
+    if (manualSel.size >= 6) { showWarn('manualWarn', '6개만 선택할 수 있어요!'); return; }
+    manualSel.add(n);
+  }
+  clearWarn('manualWarn');
+  updateManualGrid();
+}
+
+// ── 태그 업데이트 ──
+function updateExcludeTags() {
+  const row = document.getElementById('excludeTagRow');
+  if (excluded.size === 0) { row.innerHTML = '<span class="tag-empty">없음</span>'; return; }
+  row.innerHTML = [...excluded].sort((a,b)=>a-b).map(n => `<span class="tag excl">${n}</span>`).join('');
+}
+function updateFixedTags() {
+  const row = document.getElementById('fixedTagRow');
+  if (fixed.size === 0) { row.innerHTML = '<span class="tag-empty">없음</span>'; return; }
+  row.innerHTML = [...fixed].sort((a,b)=>a-b).map(n => `<span class="tag">${n}</span>`).join('');
+}
+function updateManualTags() {
+  const row = document.getElementById('manualTagRow');
+  if (manualSel.size === 0) { row.innerHTML = '<span class="tag-empty">없음</span>'; return; }
+  row.innerHTML = [...manualSel].sort((a,b)=>a-b).map(n => `<span class="tag">${n}</span>`).join('');
+}
+
+// ── 모드 전환 ──
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+  document.getElementById('fixedCard').style.display = m === 'semi' ? 'block' : 'none';
+  document.getElementById('manualCard').style.display = m === 'manual' ? 'block' : 'none';
+  document.getElementById('gameCountCard').style.display = m === 'manual' ? 'none' : 'block';
+  const btn = document.getElementById('generateBtn');
+  btn.textContent = m === 'manual' ? '✏️ 번호 확정' : '🎰 추천번호 생성';
+  document.getElementById('resultSection').classList.remove('show');
+  updateGenerateBtn();
+  refreshGrids();
+}
+
+function updateGenerateBtn() {
+  const btn = document.getElementById('generateBtn');
+  if (mode === 'manual') {
+    btn.disabled = manualSel.size !== 6;
+    btn.textContent = `✏️ 번호 확정 (${manualSel.size}/6)`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = '🎰 추천번호 생성';
+  }
+}
+
+function setGameCount(n) {
+  gameCount = n;
+  document.querySelectorAll('.game-count-btn').forEach(b => b.classList.toggle('active', +b.dataset.g === n));
+}
+
+// ── 번호 생성 ──
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function getPool() {
+  const pool = [];
+  for (let i = 1; i <= 45; i++) {
+    if (!excluded.has(i)) pool.push(i);
+  }
+  return pool;
+}
+
+function pickNumbers() {
+  const pool = getPool();
+  if (pool.length < 6) { showToast('사용 가능한 번호가 부족해요!'); return null; }
+
+  if (mode === 'manual') {
+    return [...manualSel].sort((a,b) => a-b);
+  }
+
+  if (mode === 'semi') {
+    const fixedArr = [...fixed];
+    const remaining = pool.filter(n => !fixed.has(n));
+    if (remaining.length < 6 - fixedArr.length) { showToast('남은 번호가 부족해요!'); return null; }
+    const need = 6 - fixedArr.length;
+    const picked = shuffle([...remaining]).slice(0, need);
+    return [...fixedArr, ...picked].sort((a,b) => a-b);
+  }
+
+  // auto
+  return shuffle([...pool]).slice(0, 6).sort((a,b) => a-b);
+}
+
+function generate() {
+  const resultSection = document.getElementById('resultSection');
+  const resultGames = document.getElementById('resultGames');
+  resultGames.innerHTML = '';
+
+  const count = mode === 'manual' ? 1 : gameCount;
+  const results = [];
+
+  for (let g = 0; g < count; g++) {
+    const nums = pickNumbers();
+    if (!nums) return;
+    results.push(nums);
+  }
+
+  results.forEach((nums, idx) => {
+    const div = document.createElement('div');
+    div.className = 'result-game';
+    div.style.animationDelay = (idx * 0.05) + 's';
+    const gameLabel = count === 1 ? '추천 번호' : `${String.fromCharCode(65+idx)}게임`;
+    div.innerHTML = `
+      <div class="result-label">
+        <span>${gameLabel}</span>
+        <button class="copy-game-btn" onclick="copyGame('${nums.join(', ')}')">복사</button>
+      </div>
+      <div class="balls-row">
+        ${nums.map(n => `<div class="ball r${getRange(n)}">${n}</div>`).join('')}
+      </div>
+    `;
+    resultGames.appendChild(div);
+  });
+
+  resultSection.classList.add('show');
+  setTimeout(() => resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+// ── 복사 ──
+function copyGame(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('복사됐어요! 🎉'));
+}
+
+function copyAll() {
+  const games = document.querySelectorAll('#resultGames .result-game');
+  const lines = [];
+  games.forEach((g, i) => {
+    const balls = [...g.querySelectorAll('.ball')].map(b => b.textContent);
+    lines.push(`${String.fromCharCode(65+i)}: ${balls.join(', ')}`);
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('전체 복사됐어요! 🎉'));
+}
+
+// ── 초기화 ──
+function clearExcluded() {
+  excluded.clear();
+  refreshGrids();
+  showToast('제외번호가 해제됐어요');
+}
+
+function resetAll() {
+  excluded.clear(); fixed.clear(); manualSel.clear();
+  refreshGrids();
+  document.getElementById('resultSection').classList.remove('show');
+  document.getElementById('resultGames').innerHTML = '';
+  showToast('초기화됐어요');
+}
+
+// ── 경고/토스트 ──
+function showWarn(id, msg) {
+  document.getElementById(id).textContent = msg;
+}
+function clearWarn(id) {
+  document.getElementById(id).textContent = '';
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── PWA 설치 프롬프트 ──
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.remove('hidden');
+});
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const result = await deferredPrompt.userChoice;
+  if (result.outcome === 'accepted') {
+    document.getElementById('installBanner').classList.add('hidden');
+    showToast('앱이 설치됐어요! 🎉');
+  }
+  deferredPrompt = null;
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.add('hidden');
+});
+
+// ── Service Worker 등록 ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+// ── 초기화 ──
+buildGrid('excludeGrid', onExcludeClick);
+buildGrid('fixedGrid', onFixedClick);
+buildGrid('manualGrid', onManualClick);
+refreshGrids();
+</script>
+</body>
+</html>
