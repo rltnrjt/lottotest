@@ -1,0 +1,2 @@
+# lottotest
+lotto
