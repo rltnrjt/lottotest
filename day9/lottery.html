@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>로또픽 — 번호 추출 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════
+   CSS 변수 & 리셋
+═══════════════════════════════════════ */
+:root {
+  --bg:        #0f0f1a;
+  --bg2:       #16162a;
+  --bg3:       #1e1e38;
+  --bg4:       #252545;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.14);
+  --text:      #eeeeff;
+  --text2:     #8888aa;
+  --text3:     #555570;
+  --gold:      #c8a84b;
+  --gold2:     #e8c86a;
+  --radius:    14px;
+  --radius-sm: 9px;
+  /* 번호 색상 (PRD 3.5 기준) */
+  --c1: #f9ca24;   /* 1~10  노랑  */
+  --c2: #0984e3;   /* 11~20 파랑  */
+  --c3: #e84393;   /* 21~30 핑크  */
+  --c4: #6c5ce7;   /* 31~40 보라  */
+  --c5: #00b894;   /* 41~45 초록  */
+}
+*{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html{ scroll-behavior:smooth; }
+body{
+  font-family:'Noto Sans KR',sans-serif;
+  background:var(--bg); color:var(--text);
+  min-height:100vh; padding-bottom:40px;
+}
+
+/* ═══════════════════════════════════════
+   헤더 (구역 ①)
+═══════════════════════════════════════ */
+.header{
+  background:rgba(15,15,26,0.94);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border2);
+  padding:14px 20px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:200;
+}
+.logo{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:26px; letter-spacing:3px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.logo-sub{ font-size:10px; color:var(--text3); letter-spacing:1.5px; margin-top:-2px; }
+.mode-badge{
+  font-size:11px; font-weight:700; letter-spacing:.5px;
+  padding:5px 14px; border-radius:20px;
+  background:rgba(200,168,75,.15); border:1px solid var(--gold); color:var(--gold2);
+  transition:all .25s;
+}
+
+/* ═══════════════════════════════════════
+   레이아웃
+═══════════════════════════════════════ */
+.wrap{ max-width:520px; margin:0 auto; padding:18px 14px; }
+
+/* ═══════════════════════════════════════
+   모드 탭 (구역 ②)
+═══════════════════════════════════════ */
+.mode-tabs{
+  display:grid; grid-template-columns:repeat(3,1fr);
+  background:var(--bg2); border-radius:var(--radius);
+  border:1px solid var(--border); padding:4px; gap:4px; margin-bottom:16px;
+}
+.mode-tab{
+  padding:11px 6px; border-radius:10px; border:1px solid transparent;
+  background:transparent; color:var(--text2);
+  font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:500;
+  cursor:pointer; transition:all .2s; text-align:center; line-height:1.3;
+}
+.mode-tab .tab-icon{ display:block; font-size:18px; margin-bottom:3px; }
+.mode-tab.active{
+  background:rgba(200,168,75,.13); color:var(--gold2); font-weight:700;
+  border-color:var(--gold); box-shadow:0 2px 12px rgba(200,168,75,.18);
+}
+
+/* ═══════════════════════════════════════
+   카드
+═══════════════════════════════════════ */
+.card{
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px; margin-bottom:14px;
+}
+.card-title{
+  font-size:11px; font-weight:700; letter-spacing:1.5px;
+  text-transform:uppercase; color:var(--gold);
+  display:flex; align-items:center; gap:8px; margin-bottom:13px;
+}
+.card-title::before{
+  content:''; width:3px; height:14px; border-radius:2px; flex-shrink:0;
+  background:linear-gradient(180deg,var(--gold),var(--gold2));
+}
+.card-title .badge-count{
+  margin-left:auto; font-size:10px; font-weight:700;
+  padding:2px 9px; border-radius:20px;
+  background:rgba(200,168,75,.15); color:var(--gold2);
+}
+
+/* ═══════════════════════════════════════
+   번호 격자
+═══════════════════════════════════════ */
+.num-grid{
+  display:grid; grid-template-columns:repeat(9,1fr); gap:5px;
+}
+@media(max-width:380px){
+  .num-grid{ grid-template-columns:repeat(8,1fr); gap:4px; }
+}
+.num-btn{
+  aspect-ratio:1; border-radius:50%; border:1.5px solid var(--border2);
+  background:var(--bg3); color:var(--text2);
+  font-size:11px; font-weight:500;
+  cursor:pointer; transition:transform .1s, background .15s, border-color .15s;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Noto Sans KR',sans-serif; user-select:none;
+}
+.num-btn:active{ transform:scale(.85); }
+
+/* 범위별 테두리 색 */
+.num-btn[data-r="1"]{ border-color:rgba(249,202,36,.4); color:var(--c1); }
+.num-btn[data-r="2"]{ border-color:rgba(9,132,227,.4); color:var(--c2); }
+.num-btn[data-r="3"]{ border-color:rgba(232,67,147,.4); color:var(--c3); }
+.num-btn[data-r="4"]{ border-color:rgba(108,92,231,.4); color:var(--c4); }
+.num-btn[data-r="5"]{ border-color:rgba(0,184,148,.4); color:var(--c5); }
+
+/* 제외 상태 */
+.num-btn.excl{
+  background:rgba(255,68,68,.12) !important;
+  border-color:#ff4444 !important; color:#ff6666 !important;
+  text-decoration:line-through; opacity:.65;
+}
+/* 고정 상태 */
+.num-btn.fixed{
+  background:rgba(200,168,75,.22) !important;
+  border-color:var(--gold) !important; color:var(--gold2) !important; font-weight:900;
+}
+/* 수동 선택 상태 */
+.num-btn[data-r="1"].sel{ background:var(--c1); color:#3a2600; border-color:var(--c1); font-weight:900; }
+.num-btn[data-r="2"].sel{ background:var(--c2); color:#fff; border-color:var(--c2); font-weight:900; }
+.num-btn[data-r="3"].sel{ background:var(--c3); color:#fff; border-color:var(--c3); font-weight:900; }
+.num-btn[data-r="4"].sel{ background:var(--c4); color:#fff; border-color:var(--c4); font-weight:900; }
+.num-btn[data-r="5"].sel{ background:var(--c5); color:#003a28; border-color:var(--c5); font-weight:900; }
+/* 비활성 */
+.num-btn.disabled{ opacity:.18 !important; pointer-events:none !important; }
+
+/* ═══════════════════════════════════════
+   풀 카운터 & 태그 행
+═══════════════════════════════════════ */
+.pool-row{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-top:10px; flex-wrap:wrap; gap:6px;
+}
+.pool-info{ font-size:11px; color:var(--text3); }
+.pool-info span{ color:var(--gold); font-weight:700; }
+.tag-row{ display:flex; flex-wrap:wrap; gap:5px; }
+.tag{
+  font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px;
+  background:rgba(200,168,75,.15); border:1px solid var(--gold); color:var(--gold2);
+}
+.tag.excl{ background:rgba(255,68,68,.15); border-color:#ff4444; color:#ff7777; }
+.tag-empty{ font-size:11px; color:var(--text3); }
+
+/* ═══════════════════════════════════════
+   경고 텍스트
+═══════════════════════════════════════ */
+.warn{ font-size:12px; color:#ff7777; min-height:18px; margin-top:6px; }
+
+/* ═══════════════════════════════════════
+   게임 수 (구역 ⑤)
+═══════════════════════════════════════ */
+.game-row{ display:flex; gap:6px; }
+.game-btn{
+  flex:1; padding:10px 4px; border-radius:var(--radius-sm);
+  border:1.5px solid var(--border2); background:var(--bg3);
+  color:var(--text2); font-family:'Noto Sans KR',sans-serif;
+  font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; text-align:center;
+}
+.game-btn.active{
+  border-color:var(--gold); background:rgba(200,168,75,.15);
+  color:var(--gold2); font-weight:700;
+}
+
+/* ═══════════════════════════════════════
+   CTA 버튼 (구역 ⑥)
+═══════════════════════════════════════ */
+.btn-generate{
+  width:100%; padding:18px; border-radius:var(--radius); border:none;
+  background:linear-gradient(135deg,#c8a84b,#e8c86a);
+  color:#111; font-family:'Noto Sans KR',sans-serif;
+  font-size:17px; font-weight:900; letter-spacing:.5px;
+  cursor:pointer; transition:all .2s; margin-bottom:14px;
+  box-shadow:0 4px 24px rgba(200,168,75,.3);
+}
+.btn-generate:hover{ box-shadow:0 6px 30px rgba(200,168,75,.45); transform:translateY(-1px); }
+.btn-generate:active{ transform:scale(.97); }
+.btn-generate:disabled{ opacity:.35; cursor:not-allowed; transform:none; box-shadow:none; }
+
+/* ═══════════════════════════════════════
+   소형 버튼
+═══════════════════════════════════════ */
+.btn-row{ display:flex; gap:8px; margin-top:12px; }
+.btn-sm{
+  flex:1; padding:11px; border-radius:var(--radius-sm);
+  border:1px solid var(--border2); background:var(--bg2);
+  color:var(--text2); font-family:'Noto Sans KR',sans-serif;
+  font-size:13px; cursor:pointer; transition:all .15s; font-weight:500;
+}
+.btn-sm:active{ background:var(--bg3); }
+.btn-sm.danger{ border-color:rgba(255,68,68,.3); color:#ff7777; }
+.btn-sm.danger:active{ background:rgba(255,68,68,.12); }
+
+/* ═══════════════════════════════════════
+   결과 영역 (구역 ⑦)
+═══════════════════════════════════════ */
+.result-section{ display:none; }
+.result-section.show{ display:block; animation:fadeIn .3s ease; }
+@keyframes fadeIn{ from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:none} }
+
+.result-header{
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;
+}
+.result-title{ font-size:12px; color:var(--gold); font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+
+.game-card{
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:var(--radius); padding:14px 16px; margin-bottom:10px;
+  animation:slideUp .35s cubic-bezier(.22,1,.36,1) both;
+}
+.game-card:nth-child(2){ animation-delay:.04s; }
+.game-card:nth-child(3){ animation-delay:.08s; }
+.game-card:nth-child(4){ animation-delay:.12s; }
+.game-card:nth-child(5){ animation-delay:.16s; }
+@keyframes slideUp{
+  from{opacity:0; transform:translateY(18px)}
+  to{opacity:1; transform:none}
+}
+.game-label{
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
+}
+.game-label span{ font-size:10px; color:var(--text3); font-weight:700; letter-spacing:1px; }
+.copy-btn{
+  background:none; border:1px solid var(--border2); border-radius:6px;
+  color:var(--text3); font-size:10px; padding:2px 8px; cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif; transition:all .15s;
+}
+.copy-btn:active{ background:var(--border2); }
+
+.balls{ display:flex; gap:7px; justify-content:center; flex-wrap:wrap; }
+
+/* 로또 공 */
+.ball{
+  width:46px; height:46px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:900;
+  box-shadow:inset 0 -4px 6px rgba(0,0,0,.25), 0 2px 8px rgba(0,0,0,.35);
+  flex-shrink:0;
+  animation:popIn .35s cubic-bezier(.34,1.56,.64,1) both;
+}
+.ball:nth-child(1){ animation-delay:.06s; }
+.ball:nth-child(2){ animation-delay:.12s; }
+.ball:nth-child(3){ animation-delay:.18s; }
+.ball:nth-child(4){ animation-delay:.24s; }
+.ball:nth-child(5){ animation-delay:.30s; }
+.ball:nth-child(6){ animation-delay:.36s; }
+@keyframes popIn{
+  from{opacity:0; transform:scale(.3) rotate(-25deg)}
+  to{opacity:1; transform:scale(1) rotate(0)}
+}
+.ball.r1{ background:radial-gradient(circle at 35% 30%,#ffe97a,#e6b800); color:#4a3200; }
+.ball.r2{ background:radial-gradient(circle at 35% 30%,#5ac8ff,#0764b0); color:#fff; }
+.ball.r3{ background:radial-gradient(circle at 35% 30%,#ff9ed8,#c0186e); color:#fff; }
+.ball.r4{ background:radial-gradient(circle at 35% 30%,#b09cff,#4a34b8); color:#fff; }
+.ball.r5{ background:radial-gradient(circle at 35% 30%,#5dffd6,#007a5e); color:#003228; }
+/* 고정번호 표시 (★ 뱃지) */
+.ball.is-fixed::after{
+  content:'★'; position:absolute;
+  top:-5px; right:-5px; font-size:11px;
+  background:#c8a84b; color:#111; border-radius:50%;
+  width:16px; height:16px; display:flex; align-items:center; justify-content:center;
+  font-weight:900;
+}
+.ball{ position:relative; }
+
+/* ═══════════════════════════════════════
+   토스트
+═══════════════════════════════════════ */
+.toast{
+  position:fixed; bottom:30px; left:50%;
+  transform:translateX(-50%) translateY(16px);
+  background:rgba(22,22,42,.96); backdrop-filter:blur(12px);
+  border:1px solid var(--border2); border-radius:30px;
+  padding:10px 22px; font-size:13px; color:var(--text);
+  pointer-events:none; opacity:0; transition:all .25s; z-index:999;
+  white-space:nowrap;
+}
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ═══════════════════════════════════════
+   범례
+═══════════════════════════════════════ */
+.legend{
+  display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;
+}
+.legend-item{
+  display:flex; align-items:center; gap:5px;
+  font-size:11px; color:var(--text2);
+}
+.legend-dot{
+  width:14px; height:14px; border-radius:50%; flex-shrink:0;
+}
+</style>
+</head>
+<body>
+
+<!-- ① 헤더 -->
+<header class="header">
+  <div>
+    <div class="logo">LOTTO PICK</div>
+    <div class="logo-sub">번호 추출 시스템 v1.0</div>
+  </div>
+  <div class="mode-badge" id="modeBadge">🎯 자동 모드</div>
+</header>
+
+<main class="wrap">
+
+  <!-- ② 모드 탭 -->
+  <div class="mode-tabs" role="tablist" aria-label="번호 생성 모드 선택">
+    <button class="mode-tab active" role="tab" aria-selected="true"
+            data-mode="auto" onclick="setMode('auto')" aria-label="자동 모드">
+      <span class="tab-icon">🎯</span>자동
+    </button>
+    <button class="mode-tab" role="tab" aria-selected="false"
+            data-mode="semi" onclick="setMode('semi')" aria-label="반자동 모드">
+      <span class="tab-icon">⚡</span>반자동
+    </button>
+    <button class="mode-tab" role="tab" aria-selected="false"
+            data-mode="manual" onclick="setMode('manual')" aria-label="수동 모드">
+      <span class="tab-icon">✏️</span>수동
+    </button>
+  </div>
+
+  <!-- ③ 제외번호 패널 (PRD 3.1) -->
+  <div class="card">
+    <div class="card-title">
+      제외번호 선택
+      <span class="badge-count" id="exclCount">0 / 39</span>
+    </div>
+    <div class="num-grid" id="exclGrid" role="group" aria-label="제외번호 선택 격자"></div>
+    <div class="warn" id="exclWarn" role="alert"></div>
+    <div class="pool-row">
+      <div class="pool-info">남은 번호 풀: <span id="poolCount">45</span>개</div>
+      <div class="tag-row" id="exclTags"><span class="tag-empty">없음</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-sm danger" onclick="clearExcl()" aria-label="제외번호 전체 해제">
+        ✕ 제외번호 전체 해제
+      </button>
+    </div>
+    <!-- 번호 색상 범례 -->
+    <div class="legend" aria-label="번호 색상 범례">
+      <div class="legend-item"><div class="legend-dot" style="background:#e6b800"></div>1~10</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#0984e3"></div>11~20</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e84393"></div>21~30</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#6c5ce7"></div>31~40</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#00b894"></div>41~45</div>
+    </div>
+  </div>
+
+  <!-- ④ 고정번호 패널 (반자동 전용, PRD 3.3) -->
+  <div class="card" id="fixedCard" style="display:none;">
+    <div class="card-title">
+      고정번호 선택
+      <span class="badge-count" id="fixedCount">0 / 5</span>
+    </div>
+    <p style="font-size:12px; color:var(--text3); margin-bottom:10px;">
+      결과에 반드시 포함될 번호를 최대 5개 선택하세요
+    </p>
+    <div class="num-grid" id="fixedGrid" role="group" aria-label="고정번호 선택 격자"></div>
+    <div class="warn" id="fixedWarn" role="alert"></div>
+    <div class="pool-row">
+      <div style="font-size:11px; color:var(--text3);">고정번호:</div>
+      <div class="tag-row" id="fixedTags"><span class="tag-empty">없음</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-sm danger" onclick="clearFixed()" aria-label="고정번호 전체 해제">
+        ✕ 고정번호 초기화
+      </button>
+    </div>
+  </div>
+
+  <!-- 수동 모드 패널 (PRD 3.2) -->
+  <div class="card" id="manualCard" style="display:none;">
+    <div class="card-title">
+      번호 직접 선택
+      <span class="badge-count" id="manualCount">0 / 6</span>
+    </div>
+    <p style="font-size:12px; color:var(--text3); margin-bottom:10px;">
+      원하는 번호 6개를 직접 클릭해서 선택하세요
+    </p>
+    <div class="num-grid" id="manualGrid" role="group" aria-label="수동 번호 선택 격자"></div>
+    <div class="warn" id="manualWarn" role="alert"></div>
+    <div class="pool-row">
+      <div style="font-size:11px; color:var(--text3);">선택번호:</div>
+      <div class="tag-row" id="manualTags"><span class="tag-empty">없음</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-sm danger" onclick="clearManual()" aria-label="수동 선택 초기화">
+        ✕ 선택 초기화
+      </button>
+    </div>
+  </div>
+
+  <!-- ⑤ 게임 수 선택 (자동/반자동만) -->
+  <div class="card" id="gameCard">
+    <div class="card-title">게임 수</div>
+    <div class="game-row" role="group" aria-label="게임 수 선택">
+      <button class="game-btn active" data-g="1" onclick="setGame(1)" aria-label="1게임">1게임</button>
+      <button class="game-btn" data-g="2" onclick="setGame(2)" aria-label="2게임">2게임</button>
+      <button class="game-btn" data-g="3" onclick="setGame(3)" aria-label="3게임">3게임</button>
+      <button class="game-btn" data-g="4" onclick="setGame(4)" aria-label="4게임">4게임</button>
+      <button class="game-btn" data-g="5" onclick="setGame(5)" aria-label="5게임">5게임</button>
+    </div>
+  </div>
+
+  <!-- ⑥ 추천번호 생성 버튼 -->
+  <button class="btn-generate" id="genBtn" onclick="generate()" aria-label="번호 생성">
+    🎰 추천번호 생성
+  </button>
+
+  <!-- ⑦ 결과 출력 영역 (PRD 3.5) -->
+  <section class="result-section" id="resultSec" aria-label="추천 번호 결과">
+    <div class="result-header">
+      <div class="result-title">📋 추천 번호</div>
+      <button class="btn-sm" style="width:auto; padding:6px 14px; font-size:11px;"
+              onclick="copyAll()" aria-label="전체 번호 복사">전체 복사</button>
+    </div>
+    <div id="resultGames"></div>
+    <div class="btn-row">
+      <button class="btn-sm" onclick="generate()" aria-label="번호 다시 생성">🔄 다시 생성</button>
+      <button class="btn-sm danger" onclick="resetAll()" aria-label="전체 초기화">🗑️ 전체 초기화</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- 토스트 -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ═══════════════════════════════════════
+   상태 관리
+═══════════════════════════════════════ */
+let mode     = 'auto';    // 'auto' | 'semi' | 'manual'
+let excluded = new Set(); // 제외번호
+let fixed    = new Set(); // 고정번호 (반자동)
+let manual   = new Set(); // 수동 선택
+let gameCount = 1;
+
+/* ═══════════════════════════════════════
+   유틸 — 번호 → 범위(1~5)
+═══════════════════════════════════════ */
+const range = n => n<=10?'1':n<=20?'2':n<=30?'3':n<=40?'4':'5';
+
+/* ═══════════════════════════════════════
+   격자 빌드 (최초 1회)
+═══════════════════════════════════════ */
+function buildGrid(id, handler) {
+  const g = document.getElementById(id);
+  g.innerHTML = '';
+  for (let n = 1; n <= 45; n++) {
+    const b = document.createElement('button');
+    b.className = 'num-btn';
+    b.dataset.n = n;
+    b.dataset.r = range(n);
+    b.textContent = n;
+    b.setAttribute('aria-label', `번호 ${n}`);
+    b.onclick = () => handler(n);
+    g.appendChild(b);
+  }
+}
+
+/* ═══════════════════════════════════════
+   격자 상태 갱신
+═══════════════════════════════════════ */
+function refreshExcl() {
+  document.querySelectorAll('#exclGrid .num-btn').forEach(b => {
+    const n = +b.dataset.n;
+    b.className = 'num-btn' + (excluded.has(n) ? ' excl' : '');
+    b.dataset.r = range(n);
+    b.setAttribute('aria-pressed', excluded.has(n));
+  });
+  document.getElementById('exclCount').textContent = `${excluded.size} / 39`;
+  document.getElementById('poolCount').textContent  = 45 - excluded.size;
+  // 태그
+  const row = document.getElementById('exclTags');
+  row.innerHTML = excluded.size === 0
+    ? '<span class="tag-empty">없음</span>'
+    : [...excluded].sort((a,b)=>a-b).map(n=>`<span class="tag excl">${n}</span>`).join('');
+}
+
+function refreshFixed() {
+  document.querySelectorAll('#fixedGrid .num-btn').forEach(b => {
+    const n = +b.dataset.n;
+    b.className = 'num-btn';
+    b.dataset.r = range(n);
+    if (excluded.has(n))     b.classList.add('excl','disabled');
+    else if (fixed.has(n))   b.classList.add('fixed');
+    b.setAttribute('aria-pressed', fixed.has(n));
+  });
+  document.getElementById('fixedCount').textContent = `${fixed.size} / 5`;
+  const row = document.getElementById('fixedTags');
+  row.innerHTML = fixed.size === 0
+    ? '<span class="tag-empty">없음</span>'
+    : [...fixed].sort((a,b)=>a-b).map(n=>`<span class="tag">${n}</span>`).join('');
+}
+
+function refreshManual() {
+  document.querySelectorAll('#manualGrid .num-btn').forEach(b => {
+    const n = +b.dataset.n;
+    b.className = 'num-btn';
+    b.dataset.r = range(n);
+    if (excluded.has(n))     b.classList.add('excl','disabled');
+    else if (manual.has(n))  b.classList.add('sel');
+    b.setAttribute('aria-pressed', manual.has(n));
+  });
+  document.getElementById('manualCount').textContent = `${manual.size} / 6`;
+  const row = document.getElementById('manualTags');
+  row.innerHTML = manual.size === 0
+    ? '<span class="tag-empty">없음</span>'
+    : [...manual].sort((a,b)=>a-b).map(n=>`<span class="tag">${n}</span>`).join('');
+  updateGenBtn();
+}
+
+/* ═══════════════════════════════════════
+   클릭 핸들러
+═══════════════════════════════════════ */
+function onExcl(n) {
+  if (excluded.has(n)) {
+    excluded.delete(n);
+  } else {
+    if (45 - excluded.size <= 6) {
+      showWarn('exclWarn','⚠️ 최소 6개 번호는 남겨야 해요!'); return;
+    }
+    excluded.add(n);
+    fixed.delete(n);   // 교차 방지
+    manual.delete(n);
+  }
+  clearWarn('exclWarn');
+  refreshExcl();
+  if (mode === 'semi')   refreshFixed();
+  if (mode === 'manual') refreshManual();
+}
+
+function onFixed(n) {
+  if (excluded.has(n)) return;
+  if (fixed.has(n)) {
+    fixed.delete(n);
+  } else {
+    if (fixed.size >= 5) { showWarn('fixedWarn','⚠️ 고정번호는 최대 5개까지!'); return; }
+    fixed.add(n);
+  }
+  clearWarn('fixedWarn');
+  refreshFixed();
+}
+
+function onManual(n) {
+  if (excluded.has(n)) return;
+  if (manual.has(n)) {
+    manual.delete(n);
+  } else {
+    if (manual.size >= 6) { showWarn('manualWarn','⚠️ 6개만 선택할 수 있어요!'); return; }
+    manual.add(n);
+  }
+  clearWarn('manualWarn');
+  refreshManual();
+}
+
+/* ═══════════════════════════════════════
+   모드 전환 (구역 ②)
+═══════════════════════════════════════ */
+const modeLabels = { auto:'🎯 자동 모드', semi:'⚡ 반자동 모드', manual:'✏️ 수동 모드' };
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-tab').forEach(t => {
+    const on = t.dataset.mode === m;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on);
+  });
+  document.getElementById('modeBadge').textContent = modeLabels[m];
+  document.getElementById('fixedCard').style.display  = m === 'semi'   ? 'block' : 'none';
+  document.getElementById('manualCard').style.display = m === 'manual' ? 'block' : 'none';
+  document.getElementById('gameCard').style.display   = m === 'manual' ? 'none'  : 'block';
+  document.getElementById('resultSec').classList.remove('show');
+  updateGenBtn();
+  if (m === 'semi')   refreshFixed();
+  if (m === 'manual') refreshManual();
+}
+
+function setGame(n) {
+  gameCount = n;
+  document.querySelectorAll('.game-btn').forEach(b =>
+    b.classList.toggle('active', +b.dataset.g === n)
+  );
+}
+
+function updateGenBtn() {
+  const btn = document.getElementById('genBtn');
+  if (mode === 'manual') {
+    btn.disabled = manual.size !== 6;
+    btn.textContent = `✏️ 번호 확정 (${manual.size}/6)`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = '🎰 추천번호 생성';
+  }
+}
+
+/* ═══════════════════════════════════════
+   알고리즘 (PRD 6.1)
+   Fisher-Yates 셔플
+═══════════════════════════════════════ */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function getPool() {
+  const p = [];
+  for (let i = 1; i <= 45; i++) if (!excluded.has(i)) p.push(i);
+  return p;
+}
+
+function pickNumbers() {
+  const pool = getPool();
+
+  // PRD 6.2 유효성 검증
+  if (pool.length < 6) {
+    showToast('⚠️ 제외번호가 너무 많아요! (최소 6개 필요)'); return null;
+  }
+
+  // 수동 모드
+  if (mode === 'manual') {
+    return [...manual].sort((a,b)=>a-b);
+  }
+
+  // 반자동 모드 (PRD 3.3)
+  if (mode === 'semi') {
+    const fixedArr = [...fixed];
+    const remain   = pool.filter(n => !fixed.has(n));
+    const need     = 6 - fixedArr.length;
+    if (remain.length < need) {
+      showToast('⚠️ 남은 번호가 부족해요!'); return null;
+    }
+    const picked = shuffle([...remain]).slice(0, need);
+    return [...fixedArr, ...picked].sort((a,b)=>a-b);
+  }
+
+  // 자동 모드 (PRD 3.4) — Fisher-Yates 후 앞 6개
+  return shuffle([...pool]).slice(0, 6).sort((a,b)=>a-b);
+}
+
+/* ═══════════════════════════════════════
+   번호 생성 & 출력 (구역 ⑦)
+═══════════════════════════════════════ */
+function generate() {
+  const count = mode === 'manual' ? 1 : gameCount;
+  const games = [];
+
+  for (let g = 0; g < count; g++) {
+    const nums = pickNumbers();
+    if (!nums) return;
+    games.push(nums);
+  }
+
+  const container = document.getElementById('resultGames');
+  container.innerHTML = '';
+
+  games.forEach((nums, idx) => {
+    const label = count === 1 ? '추천 번호' : `${String.fromCharCode(65+idx)} 게임`;
+    const isFixedSet = mode === 'semi' ? fixed : new Set();
+
+    const ballsHtml = nums.map(n => {
+      const isFix = isFixedSet.has(n);
+      return `<div class="ball r${range(n)}${isFix?' is-fixed':''}"
+                   title="${n}번${isFix?' (고정)':''}">${n}</div>`;
+    }).join('');
+
+    const numsText = nums.join(', ');
+    const div = document.createElement('div');
+    div.className = 'game-card';
+    div.innerHTML = `
+      <div class="game-label">
+        <span>${label}</span>
+        <button class="copy-btn" onclick="copyGame('${numsText}')"
+                aria-label="${label} 번호 복사">복사</button>
+      </div>
+      <div class="balls" role="list" aria-label="${label} 번호">${ballsHtml}</div>
+    `;
+    container.appendChild(div);
+  });
+
+  const sec = document.getElementById('resultSec');
+  sec.classList.add('show');
+  setTimeout(() => sec.scrollIntoView({ behavior:'smooth', block:'start' }), 120);
+}
+
+/* ═══════════════════════════════════════
+   복사 (PRD 3.5)
+═══════════════════════════════════════ */
+function copyGame(text) {
+  navigator.clipboard.writeText(text)
+    .then(() => showToast('📋 복사됐어요!'))
+    .catch(() => showToast('복사 실패 — 직접 선택해 주세요'));
+}
+
+function copyAll() {
+  const cards = document.querySelectorAll('#resultGames .game-card');
+  const lines = [...cards].map((c, i) => {
+    const balls = [...c.querySelectorAll('.ball')].map(b => b.textContent.trim());
+    return `${String.fromCharCode(65+i)}: ${balls.join(', ')}`;
+  });
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => showToast('📋 전체 복사됐어요!'));
+}
+
+/* ═══════════════════════════════════════
+   초기화
+═══════════════════════════════════════ */
+function clearExcl()   { excluded.clear(); refreshExcl(); if(mode==='semi') refreshFixed(); if(mode==='manual') refreshManual(); showToast('제외번호 전체 해제'); }
+function clearFixed()  { fixed.clear();    refreshFixed(); showToast('고정번호 초기화'); }
+function clearManual() { manual.clear();   refreshManual(); showToast('선택 초기화'); }
+
+function resetAll() {
+  excluded.clear(); fixed.clear(); manual.clear();
+  refreshExcl();
+  if (mode==='semi')   refreshFixed();
+  if (mode==='manual') refreshManual();
+  document.getElementById('resultSec').classList.remove('show');
+  document.getElementById('resultGames').innerHTML = '';
+  showToast('🗑️ 전체 초기화됐어요');
+}
+
+/* ═══════════════════════════════════════
+   경고 / 토스트
+═══════════════════════════════════════ */
+function showWarn(id, msg) { document.getElementById(id).textContent = msg; }
+function clearWarn(id)     { document.getElementById(id).textContent = ''; }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ═══════════════════════════════════════
+   초기 실행
+═══════════════════════════════════════ */
+buildGrid('exclGrid',   onExcl);
+buildGrid('fixedGrid',  onFixed);
+buildGrid('manualGrid', onManual);
+refreshExcl();
+updateGenBtn();
+</script>
+</body>
+</html>
